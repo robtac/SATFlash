@@ -1,20 +1,17 @@
 import React, { Component } from 'react';
 import firebase from 'react-native-firebase';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from 'react-native-elements';
 
 function RenderFlashcard (props) {
     const reversed = props.reversed;
-    const term = props.term;
-    const definition = props.definition;
+    const text = props.text;
 
-    if (reversed != null  && term !== null && definition != null) {
+    if (reversed != null  && text != null) {
         return (
-            <View>
+            <View style={{ flex: 1 }}>
                 <Card>
-                    <Text>reversed: {reversed}</Text>
-                    <Text>term: {term}</Text>
-                    <Text>definition: {definition}</Text>
+                    <Text>{text}</Text>
                 </Card>
             </View>
         );
@@ -34,6 +31,7 @@ class FlashQuiz extends Component {
         this.ref = firebase.firestore().collection('vocab');
         this.state = {
             reversed: false,
+            isFlipped: true,
             term: '',
             definition: ''
         }
@@ -66,13 +64,18 @@ class FlashQuiz extends Component {
     }
 
     render () {
+        if (!this.state.isFlipped)
+            cardText = this.state.term;
+        else
+            cardText = this.state.definition;
         return (
             <View style={{flex: 1, flexDirection: 'row', justifyContent: 'center'}}>
-                <RenderFlashcard
-                    reversed={this.state.reversed}
-                    term={this.state.term}
-                    definition={this.state.definition}
+                <TouchableOpacity onPress={ () => this.setState({isFlipped: !this.state.isFlipped}) }>
+                    <RenderFlashcard
+                        reversed={this.state.reversed}
+                        text={cardText}
                     />
+                </TouchableOpacity>
             </View>
         );
     }
