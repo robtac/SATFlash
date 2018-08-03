@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import firebase from 'react-native-firebase';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Card } from 'react-native-elements';
+import { Card, Button } from 'react-native-elements';
 
 function RenderFlashcard (props) {
     const reversed = props.reversed;
@@ -31,32 +31,69 @@ class FlashQuiz extends Component {
         this.ref = firebase.firestore().collection('vocab');
         this.state = {
             reversed: false,
-            isFlipped: true,
+            isFlipped: false,
             term: '',
-            definition: ''
+            definition: '',
+            wordBank: ["word", "term", "test"],
+            currentSet: [],
+            nextSet: []
         }
     }
 
     componentDidMount () {
-        var docRef = this.ref.doc('word');
-        docRef.get().then((doc) => {
-            if (doc.exists) {
-                let term = doc.data().term;
-                let definition = doc.data().definition;
-                this.updateFlashcard(term, definition);
-            } else   
-                console.log("No such document found");
-        }).catch(function(error) {
-            console.log("Error getting document: ", error);
-        })
+        this.nextFlashcard();
     }
 
-    updateFlashcard (term, definition) {
-        console.log("I'm updateFlashcard!");
-        this.setState({
-            term: term,
-            definition: definition
-        });
+    nextFlashcard () {
+        var currentQuery;
+        if (this.state.currentSet.length === 0) {
+            currentQuery = this.ref.limit(2);
+        } else {
+            currentQuery = this.ref.orderBy("term").startAfter(this.state.currentSet[this.state.currentSet.length - 1].term).limit(1);
+        }
+        var currentArray = [];
+        currentQuery.get().then((querySnapshot) => {
+            if (this.state.currentSet.length === 0) {
+                if (querySnapshot.docs.length === 0) { // this will never be called bc currentQuery data is from currentSet
+                    this.setState ({
+                        term: '',
+                        definition: ''
+                        // TODO: Add clause for if there are no more flashcards left
+                    });
+                    console.error("No more flashcards!");
+                } else {
+                    querySnapshot.docs.forEach((doc) => {
+                        currentArray.push({term: doc.data().term, definition: doc.data().definition});
+                    });
+                    var card = currentArray.shift();
+                    this.setState({
+                        term: card.term,
+                        definition: card.definition,
+                        currentSet: currentArray
+                    });
+                }
+            } else {
+                if (querySnapshot.docs.length === 0) {
+                    var card = this.state.currentSet.shift();
+                    this.setState({
+                        term: card.term,
+                        definition: card.definition,
+                        currentSet: this.state.currentSet
+                    });
+                } else {
+                    currentArray = this.state.currentSet;
+                    querySnapshot.docs.forEach((doc) => {
+                        currentArray.push({term: doc.data().term, definition: doc.data().definition});
+                    });
+                    var card = currentArray.shift();
+                    this.setState({
+                        term: card.term,
+                        definition: card.definition,
+                        currentSet: currentArray
+                    });
+                }
+            }
+        })
     }
 
     static navigationOptions = {
@@ -76,6 +113,11 @@ class FlashQuiz extends Component {
                         text={cardText}
                     />
                 </TouchableOpacity>
+                <Button
+                    onPress={ () => this.nextFlashcard() }
+                    title="Next Flashcard"
+                    color="#D21F2E"
+                />
             </View>
         );
     }
