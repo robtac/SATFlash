@@ -29,6 +29,7 @@ class FlashQuiz extends Component {
     constructor(props) {
         super(props);
         this.ref = firebase.firestore().collection('vocab');
+        this.cacheSize = 2; // how large the cache should be
         this.state = {
             reversed: false,
             isFlipped: false,
@@ -36,7 +37,7 @@ class FlashQuiz extends Component {
             definition: '',
             wordBank: ["word", "term", "test"],
             currentSet: [],
-            nextSet: []
+            firestoreIds: []
         }
     }
 
@@ -44,56 +45,96 @@ class FlashQuiz extends Component {
         this.nextFlashcard();
     }
 
-    nextFlashcard () {
-        var currentQuery;
-        if (this.state.currentSet.length === 0) {
-            currentQuery = this.ref.limit(2);
-        } else {
-            currentQuery = this.ref.orderBy("term").startAfter(this.state.currentSet[this.state.currentSet.length - 1].term).limit(1);
-        }
-        var currentArray = [];
-        currentQuery.get().then((querySnapshot) => {
-            if (this.state.currentSet.length === 0) {
-                if (querySnapshot.docs.length === 0) { // this will never be called bc currentQuery data is from currentSet
-                    this.setState ({
-                        term: '',
-                        definition: ''
-                        // TODO: Add clause for if there are no more flashcards left
-                    });
-                    console.error("No more flashcards!");
-                } else {
-                    querySnapshot.docs.forEach((doc) => {
-                        currentArray.push({term: doc.data().term, definition: doc.data().definition});
-                    });
-                    var card = currentArray.shift();
-                    this.setState({
-                        term: card.term,
-                        definition: card.definition,
-                        currentSet: currentArray
-                    });
-                }
-            } else {
-                if (querySnapshot.docs.length === 0) {
-                    var card = this.state.currentSet.shift();
-                    this.setState({
-                        term: card.term,
-                        definition: card.definition,
-                        currentSet: this.state.currentSet
-                    });
-                } else {
-                    currentArray = this.state.currentSet;
-                    querySnapshot.docs.forEach((doc) => {
-                        currentArray.push({term: doc.data().term, definition: doc.data().definition});
-                    });
-                    var card = currentArray.shift();
-                    this.setState({
-                        term: card.term,
-                        definition: card.definition,
-                        currentSet: currentArray
-                    });
-                }
-            }
+    getRandomNumber (max) {
+        return Math.floor(Math.random() * Math.floor(max));
+        // return 0;
+    }
+
+    removeIdFromIdArray (id) {
+        var tempArray = this.state.firestoreIds;
+        tempArray.splice(id, 1);
+        this.setState ({
+            firestoreIds: tempArray
+        });
+    }
+
+    async createFirstCard () {
+        var firestoreIds = this.state.firestoreIds;
+        var randId = this.getRandomNumber(firestoreIds.length);
+        let firstCardPromise = this.ref.where("numId", "==", firestoreIds[randId]).get();
+        firstCardPromise.then((querySnapshot) => {
+            var card = {term: querySnapshot.docs[0].data().term, definition: querySnapshot.docs[0].data().definition};
+            this.setState ({
+                term: card.term,
+                definition: card.definition
+            })
         })
+        this.removeIdFromIdArray(randId);
+    }
+
+    async initializeCache () {
+        var firestoreIds = this.state.firestoreIds;
+        for (var i = 1; i < this.cacheSize; i++) { 
+            var randId = this.getRandomNumber(firestoreIds.length);
+            let promise = this.ref.where("numId", "==", firestoreIds[randId]).get();
+            promise.then((querySnapshot) => {
+                var tempArray = this.state.currentSet;
+                tempArray.push({term: querySnapshot.docs[0].data().term, definition: querySnapshot.docs[0].data().definition});
+                this.setState ({
+                    currentSet: tempArray
+                })
+            })
+            this.removeIdFromIdArray(randId);
+        }
+    }
+
+    async getNextCard () {
+        var firestoreIds = this.state.firestoreIds;
+        var randId = this.getRandomNumber(firestoreIds.length);
+        let cardPromise = this.ref.where("numId", "==", firestoreIds[randId]).get();
+        cardPromise.then((querySnapshot) => {
+            var card = {term: querySnapshot.docs[0].data().term, definition: querySnapshot.docs[0].data().definition};
+            var tempArray = this.state.currentSet;
+            tempArray.push(card);
+            this.setState ({
+                currentSet: tempArray
+            })
+        })
+        this.removeIdFromIdArray(randId);
+    }
+
+    changeCard () {
+        var tempArray = this.state.currentSet;
+        var card = tempArray.shift();
+        this.setState ({
+            term: card.term,
+            definition: card.definition,
+            currentSet: tempArray
+        })
+    }
+
+    async nextFlashcard () {
+        if (this.state.firestoreIds.length === 0) { // No more to get from firebase
+            if (this.state.currentSet.length === 0) { // No cards in cache
+                let idPromise = this.ref.orderBy("numId", "desc").limit(1).get();
+                idPromise.then((querySnapshot) => {
+                    var lastId = querySnapshot.docs[0].data().numId;
+                    var idArray = Array.apply(null, {length: lastId + 1}).map(Function.call, Number);
+                    this.setState({
+                        firestoreIds: idArray
+                    })
+                })
+                .finally(() => {
+                    this.createFirstCard();
+                    this.initializeCache();
+                })
+            } else { // Run through the remainder of the cache
+                this.changeCard();
+            }
+        } else { // Cards remaining in firebase
+            this.changeCard();
+            this.getNextCard();
+        }
     }
 
     static navigationOptions = {
