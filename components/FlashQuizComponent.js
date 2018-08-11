@@ -9,11 +9,11 @@ function RenderFlashcard (props) {
 
     if (reversed != null  && text != null) {
         return (
-            <View style={{ flex: 1 }}>
-                <Card>
-                    <Text>{text}</Text>
-                </Card>
-            </View>
+            <Card containerStyle={{ flex: 1, justifyContent: 'center', alignSelf: 'stretch', marginBottom: '5%', alignItems: 'center' }}>
+                <View style={{ width: '90%', height: '90%', justifyContent: 'center', alignItems: 'center' }} >
+                    <Text style={{ fontSize: 25, textAlign: 'justify' }}>{text}</Text>
+                </View>
+            </Card>
         );
     } else {
         return (
@@ -147,18 +147,65 @@ class FlashQuiz extends Component {
         else
             cardText = this.state.definition;
         return (
-            <View style={{flex: 1, flexDirection: 'row', justifyContent: 'center'}}>
-                <TouchableOpacity onPress={ () => this.setState({isFlipped: !this.state.isFlipped}) }>
-                    <RenderFlashcard
-                        reversed={this.state.reversed}
-                        text={cardText}
-                    />
-                </TouchableOpacity>
-                <Button
-                    onPress={ () => this.nextFlashcard() }
-                    title="Next Flashcard"
-                    color="#D21F2E"
-                />
+            <View style={{ flex: 1, flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+                <View style={{ flex: 2, flexDirection: 'row' }}>
+                    <View style={{ flex: 1, flexDirection: 'row' }}>
+                        <View style={{ flex: 2 }} ></View>
+                        <TouchableOpacity style={{ flex: 5 }}
+                            onPress={ () => this.setState({isFlipped: !this.state.isFlipped}) }>
+                            <RenderFlashcard
+                                reversed={this.state.reversed}
+                                text={cardText}
+                            />
+                        </TouchableOpacity>
+                        <View style={{ flex: 2 }} ></View>
+                    </View>
+                </View>
+                <View style={{ flex: 1, flexDirection: 'column', justifyContent: 'space-evenly' }} >
+                    <View style={{ flexDirection: 'row' }}>
+                        <Button
+                            onPress={ () => this.nextFlashcard() }
+                            title="I didn't know it"
+                            color="white"
+                            buttonStyle={{
+                                backgroundColor: '#D21F2E',
+                                width: 150,
+                                height: 45,
+                                borderColor: 'transparent',
+                                borderWidth: 0,
+                                borderRadius: 5
+                            }}
+                        />
+                        <Button
+                            onPress={ () => this.nextFlashcard() }
+                            title="I knew it"
+                            color="black"
+                            buttonStyle={{
+                                backgroundColor: '#61CB2B',
+                                width: 150,
+                                height: 45,
+                                borderColor: 'transparent',
+                                borderWidth: 0,
+                                borderRadius: 5
+                            }}
+                        />
+                    </View>
+                    <View tyle={{ flexDirection: 'row' }}>
+                        <Button
+                            onPress={ () => this.nextFlashcard() }
+                            title="Previous Flashcard"
+                            color="black"
+                            buttonStyle={{
+                                backgroundColor: '#BCBCBC',
+                                width: 330,
+                                height: 45,
+                                borderColor: 'transparent',
+                                borderWidth: 0,
+                                borderRadius: 5
+                            }}
+                        />
+                    </View>
+                </View>
             </View>
         );
     }
